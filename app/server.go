@@ -25,11 +25,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = conn.Write([]byte("HTTP/1.1 200OK\r\n\r\n"))
+	_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	if err != nil {
 		fmt.Print("Error writing response: ", err.Error())
 		os.Exit(1)
 	}
-	
+
 	defer conn.Close()
 }
