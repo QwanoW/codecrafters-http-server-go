@@ -97,6 +97,4 @@ func writeResponse(conn net.Conn, status int, bodyOptional ...string) {
 	if err != nil {
 		fmt.Print("Error writing response: ", err.Error())
 	}
-
-	os.Exit(1)
 }
