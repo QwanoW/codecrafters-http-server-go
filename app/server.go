@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -8,6 +9,12 @@ import (
 )
 
 func main() {
+	directoryPath := flag.String("directory", "", "directory path string")
+
+	flag.Parse()
+
+	fmt.Println(directoryPath)
+
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
