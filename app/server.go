@@ -20,7 +20,7 @@ func main() {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
-			os.Exit(1)
+			continue
 		}
 
 		handleConnection(conn)
@@ -28,25 +28,37 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
 	buff := make([]byte, 1024)
-
 	_, err := conn.Read(buff)
-
 	if err != nil {
 		fmt.Println("Error reading connection: ", err.Error())
-		os.Exit(1)
+		return
 	}
 
-	startLine := strings.Split(string(buff), "\r\n")[0]
+	requestLines := strings.Split(string(buff), "\r\n")
+
+	startLine := requestLines[0]
+	userAgentLine := requestLines[2]
+
 	path := strings.Split(startLine, " ")[1]
+	userAgent := strings.Split(userAgentLine, " ")[1]
 
 	if path == "/" {
 		writeResponse(conn, 200)
+		return
+	}
+
+	if path == "/user-agent" {
+		writeResponse(conn, 200, userAgent)
+		return
 	}
 
 	substr := "/echo/"
-	if !strings.Contains(path, substr) {
+	if !strings.HasPrefix(path, substr) {
 		writeResponse(conn, 404)
+		return
 	}
 
 	substrIndex := strings.LastIndex(path, substr)
@@ -85,6 +97,6 @@ func writeResponse(conn net.Conn, status int, bodyOptional ...string) {
 	if err != nil {
 		fmt.Print("Error writing response: ", err.Error())
 	}
-	
+
 	os.Exit(1)
 }
