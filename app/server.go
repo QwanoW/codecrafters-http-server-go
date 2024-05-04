@@ -23,7 +23,7 @@ func main() {
 			continue
 		}
 
-		handleConnection(conn)
+		go handleConnection(conn)
 	}
 }
 
@@ -40,10 +40,8 @@ func handleConnection(conn net.Conn) {
 	requestLines := strings.Split(string(buff), "\r\n")
 
 	startLine := requestLines[0]
-	userAgentLine := requestLines[2]
 
 	path := strings.Split(startLine, " ")[1]
-	userAgent := strings.Split(userAgentLine, " ")[1]
 
 	if path == "/" {
 		writeResponse(conn, 200)
@@ -51,6 +49,9 @@ func handleConnection(conn net.Conn) {
 	}
 
 	if path == "/user-agent" {
+		userAgentLine := requestLines[2]
+		userAgent := strings.Split(userAgentLine, " ")[1]
+
 		writeResponse(conn, 200, userAgent)
 		return
 	}
