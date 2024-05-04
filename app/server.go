@@ -2,33 +2,35 @@ package main
 
 import (
 	"fmt"
-	"strings"
-	// Uncomment this block to pass the first stage
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	// fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage
-	
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
-	
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+
+		handleConnection(conn)
 	}
+}
 
-	buff := make([]byte, 255)
+func handleConnection(conn net.Conn) {
+	buff := make([]byte, 1024)
 
-	_, err = conn.Read(buff)
+	_, err := conn.Read(buff)
 
 	if err != nil {
 		fmt.Println("Error reading connection: ", err.Error())
@@ -39,20 +41,50 @@ func main() {
 	path := strings.Split(startLine, " ")[1]
 
 	if path == "/" {
-		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-		if err != nil {
-			fmt.Print("Error writing response: ", err.Error())
-			os.Exit(1)
-		}
-	
-		defer conn.Close()
-	} else {
-		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-		if err != nil {
-			fmt.Print("Error writing response: ", err.Error())
-			os.Exit(1)
-		}
-	
-		defer conn.Close()
+		writeResponse(conn, 200)
 	}
+
+	substr := "/echo/"
+	if !strings.Contains(path, substr) {
+		writeResponse(conn, 404)
+	}
+
+	substrIndex := strings.LastIndex(path, substr)
+	stringFromPath := path[len(substr)+substrIndex:]
+
+	writeResponse(conn, 200, stringFromPath)
+}
+
+func writeResponse(conn net.Conn, status int, bodyOptional ...string) {
+	responseText := ""
+
+	body := ""
+	if len(bodyOptional) > 0 {
+		body = bodyOptional[0]
+	}
+
+	switch status {
+	case 200:
+		responseText += "HTTP/1.1 200 OK"
+	case 404:
+		responseText += "HTTP/1.1 404 Not Found"
+	default:
+		responseText += "HTTP/1.1 500 Internal Error"
+	}
+
+	if body != "" {
+		responseText +=
+			"\r\nContent-Type: text/plain\r\nContent-Length: " +
+				fmt.Sprint(len(body)) + "\r\n\r\n" + body
+	} else {
+		responseText += "\r\n\r\n"
+	}
+
+	_, err := conn.Write([]byte(responseText))
+
+	if err != nil {
+		fmt.Print("Error writing response: ", err.Error())
+	}
+	
+	os.Exit(1)
 }
