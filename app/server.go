@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -9,12 +8,6 @@ import (
 )
 
 func main() {
-	directoryPath := flag.String("directory", "", "directory path string")
-
-	flag.Parse()
-
-	fmt.Println(directoryPath)
-
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -51,37 +44,52 @@ func handleConnection(conn net.Conn) {
 	path := strings.Split(startLine, " ")[1]
 
 	if path == "/" {
-		writeResponse(conn, 200)
+		writeResponse(conn, 200, "", "")
 		return
 	}
+
+	if strings.HasPrefix(path, "/files/") {
+		fileName, found := strings.CutPrefix(path, "/files/")
+
+		if !found || len(os.Args) < 3 {
+		 	writeResponse(conn, 404, "", "")
+			return
+		}
+
+		directoryPath := os.Args[2]
+
+		content, err := os.ReadFile(directoryPath + fileName)
+		if err != nil {
+			writeResponse(conn, 404, "", "")
+			return
+		}
+
+		writeResponse(conn, 200, string(content), "application/octet-stream")
+		return
+ 	}
 
 	if path == "/user-agent" {
 		userAgentLine := requestLines[2]
 		userAgent := strings.Split(userAgentLine, " ")[1]
 
-		writeResponse(conn, 200, userAgent)
+		writeResponse(conn, 200, userAgent, "text/plain")
 		return
 	}
 
 	substr := "/echo/"
 	if !strings.HasPrefix(path, substr) {
-		writeResponse(conn, 404)
+		writeResponse(conn, 404, "", "")
 		return
 	}
 
 	substrIndex := strings.LastIndex(path, substr)
 	stringFromPath := path[len(substr)+substrIndex:]
 
-	writeResponse(conn, 200, stringFromPath)
+	writeResponse(conn, 200, stringFromPath, "text/plain")
 }
 
-func writeResponse(conn net.Conn, status int, bodyOptional ...string) {
+func writeResponse(conn net.Conn, status int, body, contentType string) {
 	responseText := ""
-
-	body := ""
-	if len(bodyOptional) > 0 {
-		body = bodyOptional[0]
-	}
 
 	switch status {
 	case 200:
@@ -92,9 +100,9 @@ func writeResponse(conn net.Conn, status int, bodyOptional ...string) {
 		responseText += "HTTP/1.1 500 Internal Error"
 	}
 
-	if body != "" {
+	if body != "" && contentType != "" {
 		responseText +=
-			"\r\nContent-Type: text/plain\r\nContent-Length: " +
+			"\r\nContent-Type: " + contentType + "\r\nContent-Length: " +
 				fmt.Sprint(len(body)) + "\r\n\r\n" + body
 	} else {
 		responseText += "\r\n\r\n"
