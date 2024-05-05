@@ -31,17 +31,20 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	buff := make([]byte, 1024)
-	_, err := conn.Read(buff)
+	total, err := conn.Read(buff)
 	if err != nil {
 		fmt.Println("Error reading connection: ", err.Error())
 		return
 	}
 
-	requestLines := strings.Split(string(buff), "\r\n")
+	requestLines := strings.Split(string(buff)[:total], "\r\n")
 
 	startLine := requestLines[0]
 
-	path := strings.Split(startLine, " ")[1]
+	startLineSeparated := strings.Split(startLine, " ")
+
+	method := startLineSeparated[0]
+	path := startLineSeparated[1]
 
 	if path == "/" {
 		writeResponse(conn, 200, "", "")
@@ -49,24 +52,37 @@ func handleConnection(conn net.Conn) {
 	}
 
 	if strings.HasPrefix(path, "/files/") {
+		fmt.Println("debug")
+
 		fileName, found := strings.CutPrefix(path, "/files/")
 
 		if !found || len(os.Args) < 3 {
-		 	writeResponse(conn, 404, "", "")
+			writeResponse(conn, 404, "", "")
 			return
 		}
 
 		directoryPath := os.Args[2]
 
-		content, err := os.ReadFile(directoryPath + fileName)
-		if err != nil {
-			writeResponse(conn, 404, "", "")
+		if method == "POST" {
+
+			if err := os.WriteFile(directoryPath+fileName, []byte(requestLines[len(requestLines)-1]), 066); err != nil {
+				writeResponse(conn, 500, "", "")
+				return
+			}
+
+			writeResponse(conn, 201, "", "")
+			return
+		} else {
+			content, err := os.ReadFile(directoryPath + fileName)
+			if err != nil {
+				writeResponse(conn, 404, "", "")
+				return
+			}
+
+			writeResponse(conn, 200, string(content), "application/octet-stream")
 			return
 		}
-
-		writeResponse(conn, 200, string(content), "application/octet-stream")
-		return
- 	}
+	}
 
 	if path == "/user-agent" {
 		userAgentLine := requestLines[2]
@@ -94,6 +110,8 @@ func writeResponse(conn net.Conn, status int, body, contentType string) {
 	switch status {
 	case 200:
 		responseText += "HTTP/1.1 200 OK"
+	case 201:
+		responseText += "HTTP/1.1 201 Created"
 	case 404:
 		responseText += "HTTP/1.1 404 Not Found"
 	default:
