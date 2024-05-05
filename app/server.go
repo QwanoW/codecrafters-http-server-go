@@ -38,9 +38,7 @@ func handleConnection(conn net.Conn) {
 	}
 
 	requestLines := strings.Split(string(buff)[:total], "\r\n")
-
 	startLine := requestLines[0]
-
 	startLineSeparated := strings.Split(startLine, " ")
 
 	method := startLineSeparated[0]
@@ -52,8 +50,6 @@ func handleConnection(conn net.Conn) {
 	}
 
 	if strings.HasPrefix(path, "/files/") {
-		fmt.Println("debug")
-
 		fileName, found := strings.CutPrefix(path, "/files/")
 
 		if !found || len(os.Args) < 3 {
